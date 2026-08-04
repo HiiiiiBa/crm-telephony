@@ -1,0 +1,143 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Workspace {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  users     User[]
+  teams     Team[]
+  contacts  Contact[]
+  deals     Deal[]
+}
+
+model Team {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  users       User[]
+
+  @@index([workspaceId])
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  role           String    @default("AGENT") // ADMIN, MANAGER, AGENT
+  isActive       Boolean   @default(true)
+  phoneExtension String?
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  teamId         String?
+  team           Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  contacts       Contact[] @relation("ContactOwner")
+  deals          Deal[]    @relation("DealOwner")
+  calls          Call[]    @relation("AgentCalls")
+  messages       Message[] @relation("AgentMessages")
+
+  @@index([workspaceId])
+  @@index([teamId])
+}
+
+model Contact {
+  id          String    @id @default(uuid())
+  firstName   String
+  lastName    String
+  company     String?
+  phone       String
+  email       String?
+  tags        String?   // JSON stringified array or comma-separated values
+  notes       String?
+  ownerId     String
+  owner       User      @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  deals       Deal[]
+  calls       Call[]
+  messages    Message[]
+
+  @@index([workspaceId])
+  @@index([ownerId])
+  @@index([phone])
+  @@index([email])
+}
+
+model Deal {
+  id          String    @id @default(uuid())
+  title       String
+  value       Float     @default(0.0)
+  stage       String    @default("LEAD") // LEAD, QUALIFIE, PROPOSITION, NEGOTIATION, GAGNE, PERDU
+  contactId   String
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  ownerId     String
+  owner       User      @relation("DealOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+  @@index([ownerId])
+  @@index([contactId])
+  @@index([stage])
+}
+
+model Call {
+  id           String   @id @default(uuid())
+  callerNumber String
+  calledNumber String
+  direction    String   // INBOUND, OUTBOUND
+  status       String   @default("COMPLETED") // RINGING, CONNECTED, COMPLETED, MISSED, VOICEMAIL
+  duration     Int      @default(0) // duration in seconds
+  agentId      String
+  agent        User     @relation("AgentCalls", fields: [agentId], references: [id], onDelete: Cascade)
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  note         String?
+  recordingUrl String?
+  createdAt    DateTime @default(now())
+
+  @@index([agentId])
+  @@index([contactId])
+  @@index([createdAt])
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  content    String
+  fromNumber String
+  toNumber   String
+  direction  String   // INBOUND, OUTBOUND
+  status     String   @default("SENT") // SENT, DELIVERED, FAILED, RECEIVED
+  agentId    String
+  agent      User     @relation("AgentMessages", fields: [agentId], references: [id], onDelete: Cascade)
+  contactId  String?
+  contact    Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@index([agentId])
+  @@index([contactId])
+  @@index([createdAt])
+}
