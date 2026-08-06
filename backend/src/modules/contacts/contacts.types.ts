@@ -26,6 +26,12 @@ export interface ContactFilters {
   limit?: number;
 }
 
+export interface AuthContext {
+  userId: string;
+  workspaceId: string;
+  role: string;
+}
+
 export interface PaginatedContacts {
   data: ContactWithOwner[];
   pagination: {

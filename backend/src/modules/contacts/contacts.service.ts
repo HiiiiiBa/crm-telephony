@@ -1,6 +1,20 @@
 import { prisma } from '../../services/prisma.js';
 import { AppError } from '../../middleware/errorHandler.js';
-import { CreateContactDTO, UpdateContactDTO, ContactFilters, PaginatedContacts, ContactWithOwner } from './contacts.types.js';
+import { buildVisibilityFilter as buildDealVisibilityFilter } from '../deals/deals.permissions.js';
+import { buildCallVisibilityFilter } from '../calls/calls.permissions.js';
+import {
+  assertCanAssignOwner,
+  assertCanManageContact,
+  buildContactVisibilityFilter,
+} from './contacts.permissions.js';
+import {
+  AuthContext,
+  CreateContactDTO,
+  UpdateContactDTO,
+  ContactFilters,
+  PaginatedContacts,
+  ContactWithOwner,
+} from './contacts.types.js';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -14,15 +28,12 @@ const ownerSelect = {
 };
 
 export class ContactsService {
-  /**
-   * Récupère tous les contacts du workspace avec recherche et pagination.
-   */
-  static async getAll(workspaceId: string, filters: ContactFilters): Promise<PaginatedContacts> {
+  static async getAll(auth: AuthContext, filters: ContactFilters): Promise<PaginatedContacts> {
+    const visibility = await buildContactVisibilityFilter(auth);
     const page = Math.max(1, filters.page || DEFAULT_PAGE);
     const limit = Math.min(Math.max(1, filters.limit || DEFAULT_LIMIT), MAX_LIMIT);
     const skip = (page - 1) * limit;
 
-    // Recherche insensible à la casse sur plusieurs champs
     const searchWhere = filters.search
       ? {
           OR: [
@@ -36,7 +47,7 @@ export class ContactsService {
       : {};
 
     const where = {
-      workspaceId,
+      ...visibility,
       ...searchWhere,
     };
 
@@ -62,29 +73,12 @@ export class ContactsService {
     };
   }
 
-  /**
-   * Récupère un contact par son id, en s'assurant qu'il appartient au workspace.
-   */
-  static async getById(id: string, workspaceId: string): Promise<ContactWithOwner> {
+  static async getById(id: string, auth: AuthContext): Promise<ContactWithOwner & Record<string, unknown>> {
+    const visibility = await buildContactVisibilityFilter(auth);
+
     const contact = await prisma.contact.findFirst({
-      where: { id, workspaceId },
-      include: {
-        owner: { select: ownerSelect },
-        deals: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
-        calls: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          include: { agent: { select: ownerSelect } },
-        },
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          include: { agent: { select: ownerSelect } },
-        },
-      },
+      where: { id, ...visibility },
+      include: { owner: { select: ownerSelect } },
     });
 
     if (!contact) {
@@ -93,19 +87,37 @@ export class ContactsService {
       throw err;
     }
 
-    return contact as ContactWithOwner;
+    const [dealVisibility, callVisibility, deals, calls, messages] = await Promise.all([
+      buildDealVisibilityFilter(auth),
+      buildCallVisibilityFilter(auth),
+      prisma.deal.findMany({
+        where: { contactId: id, ...dealVisibility },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.call.findMany({
+        where: { contactId: id, ...callVisibility },
+        orderBy: { createdAt: 'desc' },
+        include: { agent: { select: ownerSelect } },
+      }),
+      prisma.message.findMany({
+        where: { contactId: id },
+        orderBy: { createdAt: 'asc' },
+        include: { agent: { select: ownerSelect } },
+      }),
+    ]);
+
+    return {
+      ...(contact as ContactWithOwner),
+      deals,
+      calls,
+      messages,
+    };
   }
 
-  /**
-   * Crée un nouveau contact dans le workspace.
-   */
-  static async create(workspaceId: string, data: CreateContactDTO): Promise<ContactWithOwner> {
-    // Si un ownerId est fourni, vérifier qu'il appartient au même workspace
-    const ownerId = data.ownerId || (await ContactsService._getDefaultOwnerId(workspaceId));
-
-    if (data.ownerId) {
-      await ContactsService._validateOwnerBelongsToWorkspace(data.ownerId, workspaceId);
-    }
+  static async create(auth: AuthContext, data: CreateContactDTO): Promise<ContactWithOwner> {
+    const ownerId = data.ownerId || auth.userId;
+    await assertCanAssignOwner(auth, ownerId);
+    await ContactsService._validateOwnerBelongsToWorkspace(ownerId, auth.workspaceId);
 
     const contact = await prisma.contact.create({
       data: {
@@ -117,7 +129,7 @@ export class ContactsService {
         tags: data.tags ? JSON.stringify(data.tags) : null,
         notes: data.notes?.trim() || null,
         ownerId,
-        workspaceId,
+        workspaceId: auth.workspaceId,
       },
       include: { owner: { select: ownerSelect } },
     });
@@ -125,21 +137,21 @@ export class ContactsService {
     return contact as ContactWithOwner;
   }
 
-  /**
-   * Met à jour un contact existant du workspace.
-   */
-  static async update(id: string, workspaceId: string, data: UpdateContactDTO): Promise<ContactWithOwner> {
-    // Vérifier l'existence et l'appartenance au workspace
-    const existing = await prisma.contact.findFirst({ where: { id, workspaceId } });
+  static async update(id: string, auth: AuthContext, data: UpdateContactDTO): Promise<ContactWithOwner> {
+    const visibility = await buildContactVisibilityFilter(auth);
+    const existing = await prisma.contact.findFirst({ where: { id, ...visibility } });
+
     if (!existing) {
       const err: AppError = new Error('Contact introuvable.');
       err.statusCode = 404;
       throw err;
     }
 
-    // Vérifier le nouvel owner si fourni
-    if (data.ownerId) {
-      await ContactsService._validateOwnerBelongsToWorkspace(data.ownerId, workspaceId);
+    await assertCanManageContact(auth, existing.ownerId);
+
+    if (data.ownerId !== undefined) {
+      await assertCanAssignOwner(auth, data.ownerId);
+      await ContactsService._validateOwnerBelongsToWorkspace(data.ownerId, auth.workspaceId);
     }
 
     const contact = await prisma.contact.update({
@@ -160,23 +172,31 @@ export class ContactsService {
     return contact as ContactWithOwner;
   }
 
-  /**
-   * Supprime un contact du workspace.
-   * Stratégie : Les Deals sont supprimés en cascade (schéma Prisma).
-   * Les appels et messages voient leur contactId mis à null (SetNull) — l'historique est préservé.
-   */
-  static async delete(id: string, workspaceId: string): Promise<void> {
-    const existing = await prisma.contact.findFirst({ where: { id, workspaceId } });
+  static async delete(id: string, auth: AuthContext): Promise<void> {
+    const visibility = await buildContactVisibilityFilter(auth);
+    const existing = await prisma.contact.findFirst({ where: { id, ...visibility } });
+
     if (!existing) {
       const err: AppError = new Error('Contact introuvable.');
       err.statusCode = 404;
       throw err;
     }
 
+    await assertCanManageContact(auth, existing.ownerId);
     await prisma.contact.delete({ where: { id } });
   }
 
-  // ─── Helpers privés ────────────────────────────────────────────────────────
+  /** Vérifie qu'un contact est accessible (lecture, appel, SMS, deal). */
+  static async assertContactAccessible(contactId: string, auth: AuthContext): Promise<void> {
+    const visibility = await buildContactVisibilityFilter(auth);
+    const contact = await prisma.contact.findFirst({ where: { id: contactId, ...visibility } });
+
+    if (!contact) {
+      const err: AppError = new Error('Contact introuvable ou accès refusé.');
+      err.statusCode = 404;
+      throw err;
+    }
+  }
 
   private static async _validateOwnerBelongsToWorkspace(ownerId: string, workspaceId: string): Promise<void> {
     const owner = await prisma.user.findFirst({ where: { id: ownerId, workspaceId } });
@@ -190,18 +210,5 @@ export class ContactsService {
       err.statusCode = 400;
       throw err;
     }
-  }
-
-  private static async _getDefaultOwnerId(workspaceId: string): Promise<string> {
-    const admin = await prisma.user.findFirst({
-      where: { workspaceId, isActive: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    if (!admin) {
-      const err: AppError = new Error('Aucun utilisateur trouvé dans ce workspace.');
-      err.statusCode = 500;
-      throw err;
-    }
-    return admin.id;
   }
 }

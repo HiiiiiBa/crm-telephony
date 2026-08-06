@@ -6,8 +6,6 @@ export interface RegisterDTO {
   email: string;
   password: string;
   workspaceName?: string;
-  workspaceId?: string; // si invité dans un workspace existant
-  role?: Role;
   phoneExtension?: string;
 }
 

@@ -64,4 +64,23 @@ export class AuthController {
       next(error);
     }
   }
+
+  static async getWorkspaceMembers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { workspaceId, userId, role } = req.user!;
+      const members = await AuthService.getWorkspaceMembers(workspaceId, { userId, role });
+      return res.status(200).json({ success: true, data: members });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getSetupStatus(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const status = await AuthService.getSetupStatus();
+      return res.status(200).json({ success: true, data: status });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

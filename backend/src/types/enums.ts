@@ -23,6 +23,7 @@ export enum CallStatus {
   CONNECTED = 'CONNECTED',
   COMPLETED = 'COMPLETED',
   MISSED = 'MISSED',
+  FAILED = 'FAILED',
   VOICEMAIL = 'VOICEMAIL',
 }
 

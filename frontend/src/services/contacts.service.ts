@@ -1,4 +1,4 @@
-import { apiFetch } from './api';
+import { apiFetch, apiFetchPaginated } from './api';
 
 export interface ContactOwner {
   id: string;
@@ -21,9 +21,17 @@ export interface Contact {
   createdAt: string;
   updatedAt: string;
   owner: ContactOwner;
-  deals?: any[];
+  deals?: ContactDeal[];
   calls?: any[];
-  messages?: any[];
+  messages?: import('../types/messages.types').Message[];
+}
+
+export interface ContactDeal {
+  id: string;
+  title: string;
+  value: number;
+  stage: string;
+  createdAt: string;
 }
 
 export interface ContactsResponse {
@@ -61,8 +69,7 @@ export class ContactsService {
     if (params?.limit) qs.set('limit', String(params.limit));
     const query = qs.toString() ? `?${qs}` : '';
 
-    const result = await apiFetch<ContactsResponse & { data: Contact[]; pagination: any }>(`/contacts${query}`);
-    return result as unknown as ContactsResponse;
+    return apiFetchPaginated<Contact>(`/contacts${query}`);
   }
 
   static async getContact(id: string): Promise<Contact> {

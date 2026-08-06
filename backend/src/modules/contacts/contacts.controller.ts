@@ -2,13 +2,17 @@ import { Request, Response, NextFunction } from 'express';
 import { ContactsService } from './contacts.service.js';
 import { validateCreateContact, validateUpdateContact } from './contacts.validation.js';
 
+const authFromReq = (req: Request) => {
+  const { userId, workspaceId, role } = req.user!;
+  return { userId, workspaceId, role };
+};
+
 export class ContactsController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const { workspaceId } = req.user!;
       const { search, page, limit } = req.query;
 
-      const result = await ContactsService.getAll(workspaceId, {
+      const result = await ContactsService.getAll(authFromReq(req), {
         search: search ? String(search) : undefined,
         page: page ? parseInt(String(page), 10) : undefined,
         limit: limit ? parseInt(String(limit), 10) : undefined,
@@ -22,8 +26,7 @@ export class ContactsController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { workspaceId } = req.user!;
-      const contact = await ContactsService.getById(req.params.id, workspaceId);
+      const contact = await ContactsService.getById(req.params.id, authFromReq(req));
       return res.status(200).json({ success: true, data: contact });
     } catch (err) {
       next(err);
@@ -32,7 +35,7 @@ export class ContactsController {
 
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const { workspaceId, userId } = req.user!;
+      const auth = authFromReq(req);
 
       const validation = validateCreateContact(req.body);
       if (!validation.isValid) {
@@ -42,13 +45,12 @@ export class ContactsController {
         });
       }
 
-      // L'ownerId par défaut est l'utilisateur connecté si non fourni
       const data = {
         ...req.body,
-        ownerId: req.body.ownerId || userId,
+        ownerId: req.body.ownerId || auth.userId,
       };
 
-      const contact = await ContactsService.create(workspaceId, data);
+      const contact = await ContactsService.create(auth, data);
       return res.status(201).json({ success: true, data: contact });
     } catch (err) {
       next(err);
@@ -57,8 +59,6 @@ export class ContactsController {
 
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { workspaceId } = req.user!;
-
       const validation = validateUpdateContact(req.body);
       if (!validation.isValid) {
         return res.status(400).json({
@@ -67,7 +67,7 @@ export class ContactsController {
         });
       }
 
-      const contact = await ContactsService.update(req.params.id, workspaceId, req.body);
+      const contact = await ContactsService.update(req.params.id, authFromReq(req), req.body);
       return res.status(200).json({ success: true, data: contact });
     } catch (err) {
       next(err);
@@ -76,8 +76,7 @@ export class ContactsController {
 
   static async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const { workspaceId } = req.user!;
-      await ContactsService.delete(req.params.id, workspaceId);
+      await ContactsService.delete(req.params.id, authFromReq(req));
       return res.status(204).send();
     } catch (err) {
       next(err);

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Phone, Lock, Mail, User, Building, ArrowRight, AlertCircle } from 'lucide-react';
+import { AuthService } from '../services/auth.service';
+import { Phone, Lock, Mail, User, Building, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
   const [firstName, setFirstName] = useState('');
@@ -11,9 +12,16 @@ export const RegisterPage: React.FC = () => {
   const [workspaceName, setWorkspaceName] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFirstUser, setIsFirstUser] = useState<boolean | null>(null);
 
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    AuthService.getSetupStatus()
+      .then(({ isFirstUser: first }) => setIsFirstUser(first))
+      .catch(() => setIsFirstUser(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +34,7 @@ export const RegisterPage: React.FC = () => {
         lastName,
         email,
         password,
-        workspaceName,
+        ...(isFirstUser && workspaceName ? { workspaceName } : {}),
       });
       navigate('/');
     } catch (err: any) {
@@ -36,6 +44,14 @@ export const RegisterPage: React.FC = () => {
     }
   };
 
+  if (isFirstUser === null) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-lg p-8 rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-6">
@@ -43,8 +59,14 @@ export const RegisterPage: React.FC = () => {
           <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
             <Phone className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-slate-100">Créer un Espace RingCRM</h2>
-          <p className="text-xs text-slate-400">Le premier inscrit devient automatiquement Administrateur de l'espace</p>
+          <h2 className="text-xl font-bold text-slate-100">
+            {isFirstUser ? 'Créer un Espace RingCRM' : 'Rejoindre l\'équipe'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isFirstUser
+              ? 'Le premier compte devient Administrateur de l\'espace.'
+              : 'Votre compte sera créé en tant qu\'Agent et apparaîtra dans la page Équipe.'}
+          </p>
         </div>
 
         {errorMsg && (
@@ -83,20 +105,22 @@ export const RegisterPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Nom de l'entreprise / Espace</label>
-            <div className="relative">
-              <Building className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                required
-                value={workspaceName}
-                onChange={(e) => setWorkspaceName(e.target.value)}
-                placeholder="Acme Telecom SAS"
-                className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500"
-              />
+          {isFirstUser && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-300">Nom de l'entreprise / Espace</label>
+              <div className="relative">
+                <Building className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  required
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  placeholder="Acme Telecom SAS"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-300">Adresse email professionnelle</label>
@@ -138,7 +162,7 @@ export const RegisterPage: React.FC = () => {
               <span>Création en cours...</span>
             ) : (
               <>
-                <span>Créer mon espace Administrateur</span>
+                <span>{isFirstUser ? 'Créer mon espace Administrateur' : 'Créer mon compte Agent'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

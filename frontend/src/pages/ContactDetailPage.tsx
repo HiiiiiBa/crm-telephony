@@ -1,15 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Phone, Mail, Building, Tag, FileText, Edit, Trash2,
-  User, KanbanSquare, PhoneCall, MessageSquare, Loader2, AlertCircle, Calendar
+  User, Loader2, AlertCircle, Calendar, MessageSquare
 } from 'lucide-react';
 import { ContactsService, Contact, parseTags, CreateContactData } from '../services/contacts.service';
 import { ContactForm } from '../components/contacts/ContactForm';
+import { ContactCallsSection } from '../components/calls/ContactCallsSection';
+import { ContactDealsSection } from '../components/contacts/ContactDealsSection';
+import { ContactMessagesSection } from '../components/contacts/ContactMessagesSection';
+import { useCall } from '../contexts/CallContext';
+import { Call } from '../types/calls.types';
+import { Message } from '../types/messages.types';
 
 export const ContactDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const messagesRef = useRef<HTMLDivElement>(null);
+
   const [contact, setContact] = useState<Contact | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,22 +26,36 @@ export const ContactDetailPage: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [smsFocus, setSmsFocus] = useState(searchParams.get('sms') === '1');
+
+  const { startCall } = useCall();
+
+  const loadContact = useCallback(async () => {
+    if (!id) return;
+    setIsLoading(true);
+    try {
+      const c = await ContactsService.getContact(id);
+      setContact(c);
+      setError(null);
+    } catch (e: any) {
+      setError(e.message || 'Contact introuvable.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { loadContact(); }, [loadContact]);
 
   useEffect(() => {
-    if (!id) return;
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const c = await ContactsService.getContact(id);
-        setContact(c);
-      } catch (e: any) {
-        setError(e.message || 'Contact introuvable.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [id]);
+    if (smsFocus && messagesRef.current && contact) {
+      messagesRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [smsFocus, contact]);
+
+  const scrollToSms = () => {
+    setSmsFocus(true);
+    messagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleEdit = async (data: CreateContactData) => {
     if (!id) return;
@@ -76,7 +99,6 @@ export const ContactDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* Navigation */}
       <div className="flex items-center justify-between">
         <Link to="/contacts" className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-200 transition">
           <ArrowLeft className="w-4 h-4" /> Retour aux contacts
@@ -91,9 +113,7 @@ export const ContactDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Info Card */}
       <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-md space-y-5">
-        {/* Header */}
         <div className="flex items-start gap-5">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-600/30 shrink-0">
             {contact.firstName[0]}{contact.lastName[0]}
@@ -106,18 +126,24 @@ export const ContactDetailPage: React.FC = () => {
               Créé le {new Date(contact.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
-          {/* Quick actions */}
           <div className="flex gap-2 shrink-0">
-            <button title="Click-to-Call (Étape 6)" className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition">
+            <button
+              onClick={() => startCall(contact.phone, contact.id)}
+              title="Appeler"
+              className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition"
+            >
               <Phone className="w-4 h-4" />
             </button>
-            <button title="SMS (Étape 7)" className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 transition">
+            <button
+              onClick={scrollToSms}
+              title="Envoyer un SMS"
+              className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 transition"
+            >
               <MessageSquare className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Info Grid */}
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
           <InfoRow icon={<Phone className="w-4 h-4" />} label="Téléphone" value={contact.phone} />
           <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={contact.email} />
@@ -140,14 +166,23 @@ export const ContactDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* Sections futures */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <PlaceholderSection icon={<KanbanSquare className="w-5 h-5" />} title="Affaires" message="Aucune affaire liée" subtext="Les opportunités commerciales apparaîtront ici (Étape 5)." color="indigo" />
-        <PlaceholderSection icon={<PhoneCall className="w-5 h-5" />} title="Historique d'appels" message="Aucun appel enregistré" subtext="L'historique des appels apparaîtra ici (Étape 6)." color="emerald" />
-        <PlaceholderSection icon={<MessageSquare className="w-5 h-5" />} title="Messages SMS" message="Aucun message" subtext="Les conversations SMS apparaîtront ici (Étape 7)." color="cyan" />
+      <div className="space-y-4">
+        <ContactDealsSection deals={contact.deals || []} contactId={contact.id} />
+        <ContactCallsSection
+          calls={(contact.calls || []) as Call[]}
+          contact={{ id: contact.id, firstName: contact.firstName, lastName: contact.lastName }}
+        />
+        <div ref={messagesRef}>
+          <ContactMessagesSection
+            contactId={contact.id}
+            contactName={`${contact.firstName} ${contact.lastName}`}
+            messages={(contact.messages || []) as Message[]}
+            onMessageSent={loadContact}
+            autoFocus={smsFocus}
+          />
+        </div>
       </div>
 
-      {/* Edit Modal */}
       {isEditing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-6 space-y-5">
@@ -157,7 +192,6 @@ export const ContactDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirm */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-6 space-y-4 text-center">
@@ -183,18 +217,5 @@ const InfoRow: React.FC<{ icon: React.ReactNode; label: string; value?: string |
   <div>
     <p className="text-[11px] text-slate-500 mb-1 flex items-center gap-1.5">{icon}{label}</p>
     <p className="text-xs font-medium text-slate-200">{value || <span className="text-slate-600">—</span>}</p>
-  </div>
-);
-
-const PlaceholderSection: React.FC<{ icon: React.ReactNode; title: string; message: string; subtext: string; color: string }> = ({ icon, title, message, subtext, color }) => (
-  <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
-    <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
-      <span className={`text-${color}-400`}>{icon}</span>
-      {title}
-    </h3>
-    <div className="text-center py-4 space-y-1">
-      <p className="text-xs font-medium text-slate-400">{message}</p>
-      <p className="text-[10px] text-slate-600">{subtext}</p>
-    </div>
   </div>
 );

@@ -49,6 +49,27 @@ L'application frontend sera accessible sur `http://localhost:5173`.
 
 ---
 
+### 3. Données de démonstration (seed)
+
+```bash
+cd backend
+npx prisma db seed
+```
+
+Comptes créés automatiquement :
+
+| Rôle | Email | Mot de passe |
+|------|-------|--------------|
+| Admin | `admin@crm-telephony.local` | `AdminPassword123!` |
+| Manager | `manager@crm-telephony.local` | `ManagerPassword123!` |
+| Agent | `agent@crm-telephony.local` | `AgentPassword123!` |
+
+> **Note :** le seed **réinitialise** toutes les données (contacts, deals, utilisateurs précédents).
+
+Si la connexion échoue avec « Identifiants incorrects », videz le token stocké dans le navigateur (F12 → Application → Local Storage → supprimer `crm_token`) puis reconnectez-vous.
+
+---
+
 ## 🔒 Variables d'environnement
 
 - **Backend** : voir `backend/.env.example`

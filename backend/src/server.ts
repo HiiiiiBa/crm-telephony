@@ -1,5 +1,11 @@
 import app from './app.js';
 import { env } from './config/env.js';
+import { initTelephonyProvider } from './telephony/telephony.service.js';
+import { initSmsProvider } from './messaging/messaging.service.js';
+import { CallsService } from './modules/calls/calls.service.js';
+
+initTelephonyProvider(CallsService.handleProviderStatusChange.bind(CallsService));
+initSmsProvider();
 
 const PORT = parseInt(env.PORT, 10) || 5000;
 

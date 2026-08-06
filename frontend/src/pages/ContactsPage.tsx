@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   UserPlus, Search, Phone, MessageSquare, Eye, Pencil, Trash2,
-  ChevronLeft, ChevronRight, AlertCircle, Loader2, Users, Tag
+  ChevronLeft, ChevronRight, AlertCircle, Loader2, Users, Tag, X
 } from 'lucide-react';
 import { ContactsService, Contact, parseTags, CreateContactData } from '../services/contacts.service';
 import { ContactForm } from '../components/contacts/ContactForm';
+import { useCall } from '../contexts/CallContext';
 
 type ModalState = 'none' | 'create' | 'edit' | 'delete';
 
@@ -21,6 +22,7 @@ export const ContactsPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const { startCall } = useCall();
 
   const fetchContacts = useCallback(async (page = 1) => {
     setIsLoading(true);
@@ -69,6 +71,11 @@ export const ContactsPage: React.FC = () => {
     finally { setFormLoading(false); }
   };
 
+  const handleCall = async (c: Contact) => {
+    try { await startCall(c.phone, c.id); }
+    catch { /* error shown in CallBar/Context */ }
+  };
+
   const handleDelete = async () => {
     if (!selectedContact) return;
     setDeleteLoading(true);
@@ -85,12 +92,12 @@ export const ContactsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-100 tracking-tight">Contacts CRM</h2>
+          <h2 className="text-xl font-bold text-slate-100 tracking-tight">Contacts</h2>
           <p className="text-xs text-slate-400">{pagination.total} contact{pagination.total !== 1 ? 's' : ''} dans votre espace</p>
         </div>
         <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition">
           <UserPlus className="w-4 h-4" />
-          <span>Nouveau Contact</span>
+          <span>Ajouter un contact</span>
         </button>
       </div>
 
@@ -183,12 +190,12 @@ export const ContactsPage: React.FC = () => {
                           <button onClick={() => openEdit(c)} title="Modifier" className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          <button title="Click-to-Call (Étape 6)" className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition">
+                          <button onClick={() => handleCall(c)} title="Appeler" className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition">
                             <Phone className="w-3.5 h-3.5" />
                           </button>
-                          <button title="SMS (Étape 7)" className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">
+                          <Link to={`/contacts/${c.id}?sms=1`} title="Envoyer SMS" className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">
                             <MessageSquare className="w-3.5 h-3.5" />
-                          </button>
+                          </Link>
                           <button onClick={() => openDelete(c)} title="Supprimer" className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -234,7 +241,7 @@ export const ContactsPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-100">{modal === 'create' ? 'Nouveau contact' : 'Modifier le contact'}</h3>
               <button onClick={closeModal} className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800 transition">
-                <Search className="w-4 h-4" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <ContactForm

@@ -17,6 +17,7 @@ model Workspace {
   teams     Team[]
   contacts  Contact[]
   deals     Deal[]
+  calls     Call[]
 }
 
 model Team {
@@ -105,22 +106,28 @@ model Deal {
 }
 
 model Call {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   callerNumber String
   calledNumber String
-  direction    String   // INBOUND, OUTBOUND
-  status       String   @default("COMPLETED") // RINGING, CONNECTED, COMPLETED, MISSED, VOICEMAIL
-  duration     Int      @default(0) // duration in seconds
+  direction    String    // INBOUND, OUTBOUND
+  status       String    @default("RINGING") // RINGING, CONNECTED, COMPLETED, MISSED, FAILED, VOICEMAIL
+  duration     Int       @default(0) // duration in seconds
   agentId      String
-  agent        User     @relation("AgentCalls", fields: [agentId], references: [id], onDelete: Cascade)
+  agent        User      @relation("AgentCalls", fields: [agentId], references: [id], onDelete: Cascade)
   contactId    String?
-  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contact      Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  startedAt    DateTime?
+  endedAt      DateTime?
   note         String?
   recordingUrl String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([agentId])
   @@index([contactId])
+  @@index([workspaceId])
   @@index([createdAt])
 }
 

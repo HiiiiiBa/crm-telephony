@@ -1,3 +1,4 @@
+import './setup.js';
 import { prisma } from '../services/prisma.js';
 import { AuthService } from '../modules/auth/auth.service.js';
 import { requireRole } from '../middleware/role.middleware.js';
@@ -39,6 +40,25 @@ async function runTests() {
     assert(Boolean(regResult.user.workspaceId), 'Un workspaceId a été attribué');
     assert(Boolean(regResult.token), 'Un token JWT valide a été généré à l\'inscription');
     assert((regResult.user as any).passwordHash === undefined, 'Le hash du mot de passe n\'est PAS exposé dans la réponse');
+
+    // TEST 1b: Deuxième inscription → AGENT dans le même workspace
+    console.log('\n--- Test 1b : 2e inscription = AGENT ---');
+    const secondEmail = 'second.user@crm-telephony.local';
+    await prisma.user.deleteMany({ where: { email: secondEmail } });
+    const prevFlag = process.env.ALLOW_MULTI_WORKSPACE_REGISTER;
+    process.env.ALLOW_MULTI_WORKSPACE_REGISTER = '';
+    const regAgent = await AuthService.register({
+      firstName: 'Marie',
+      lastName: 'Martin',
+      email: secondEmail,
+      password: 'SecurePassword123!',
+    });
+    process.env.ALLOW_MULTI_WORKSPACE_REGISTER = prevFlag;
+    assert(regAgent.user.role === Role.AGENT, 'Le 2e utilisateur devient AGENT');
+    // Même workspace si pas de mode multi-tenant test
+    if (process.env.ALLOW_MULTI_WORKSPACE_REGISTER !== 'true') {
+      assert(regAgent.user.workspaceId === regResult.user.workspaceId, 'Agent dans le même workspace que l\'Admin');
+    }
 
     // TEST 2: Email en doublon (devrait lever une erreur 409)
     console.log('\n--- Test 2 : Empêcher les doublons d\'email (409) ---');
@@ -135,7 +155,7 @@ async function runTests() {
     assert(!agentBlocked, 'Un utilisateur AGENT est refusé avec 403 sur une route requireRole("ADMIN")');
 
     // Nettoyage final
-    await prisma.user.deleteMany({ where: { email: testEmail } });
+    await prisma.user.deleteMany({ where: { email: { in: [testEmail, secondEmail] } } });
     await prisma.workspace.deleteMany({ where: { id: regResult.user.workspaceId } });
 
     console.log(`\n📊 Résultats des tests : ${passedCount} réussis, ${failedCount} échoués.`);

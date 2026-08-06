@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Building, Phone, Mail, Tag, FileText, Save, Loader2 } from 'lucide-react';
 import { Contact, CreateContactData, parseTags } from '../../services/contacts.service';
+import { AuthService, UserProfile } from '../../services/auth.service';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ContactFormProps {
   initial?: Contact | null;
@@ -11,6 +13,9 @@ interface ContactFormProps {
 }
 
 export const ContactForm: React.FC<ContactFormProps> = ({ initial, onSubmit, onCancel, isLoading, error }) => {
+  const { user } = useAuth();
+  const canAssignOwner = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const [members, setMembers] = useState<UserProfile[]>([]);
   const [firstName, setFirstName] = useState(initial?.firstName || '');
   const [lastName, setLastName] = useState(initial?.lastName || '');
   const [company, setCompany] = useState(initial?.company || '');
@@ -18,7 +23,14 @@ export const ContactForm: React.FC<ContactFormProps> = ({ initial, onSubmit, onC
   const [email, setEmail] = useState(initial?.email || '');
   const [tagsInput, setTagsInput] = useState(parseTags(initial?.tags || null).join(', '));
   const [notes, setNotes] = useState(initial?.notes || '');
+  const [ownerId, setOwnerId] = useState(initial?.ownerId || user?.id || '');
   const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    AuthService.getWorkspaceMembers()
+      .then(setMembers)
+      .catch(() => setMembers(user ? [user] : []));
+  }, [user]);
 
   useEffect(() => {
     if (initial) {
@@ -29,8 +41,11 @@ export const ContactForm: React.FC<ContactFormProps> = ({ initial, onSubmit, onC
       setEmail(initial.email || '');
       setTagsInput(parseTags(initial.tags || null).join(', '));
       setNotes(initial.notes || '');
+      setOwnerId(initial.ownerId);
+    } else if (user) {
+      setOwnerId(user.id);
     }
-  }, [initial]);
+  }, [initial, user]);
 
   const validate = (): boolean => {
     const errs: string[] = [];
@@ -55,6 +70,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({ initial, onSubmit, onC
       email: email.trim() || undefined,
       tags: tags.length > 0 ? tags : undefined,
       notes: notes.trim() || undefined,
+      ownerId: canAssignOwner ? (ownerId || undefined) : user?.id,
     });
   };
 
@@ -111,6 +127,30 @@ export const ContactForm: React.FC<ContactFormProps> = ({ initial, onSubmit, onC
           </div>
         </div>
       </div>
+
+      {canAssignOwner ? (
+        <div>
+          <label className={labelClass}>Propriétaire</label>
+          <div className="relative">
+            <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <select
+              value={ownerId}
+              onChange={e => setOwnerId(e.target.value)}
+              className={`${inputClass} appearance-none cursor-pointer`}
+            >
+              {members.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.firstName} {m.lastName} ({m.role})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : (
+        <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 text-[11px] text-slate-400">
+          Ce contact vous sera assigné automatiquement.
+        </div>
+      )}
 
       <div>
         <label className={labelClass}>Tags (séparés par des virgules)</label>

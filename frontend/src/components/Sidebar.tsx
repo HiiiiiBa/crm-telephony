@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   LayoutDashboard, 
   Users, 
@@ -12,13 +13,17 @@ import {
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
+  const { user } = useAuth();
+  const canManageTeam = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+
   const navItems = [
     { to: '/', label: 'Tableau de bord', icon: LayoutDashboard },
     { to: '/contacts', label: 'Contacts CRM', icon: Users },
     { to: '/deals', label: 'Pipeline Kanban', icon: KanbanSquare },
+    { to: '/dialer', label: 'Dialer', icon: Phone },
     { to: '/calls', label: 'Historique d\'appels', icon: PhoneCall },
     { to: '/messages', label: 'Messagerie SMS', icon: MessageSquare },
-    { to: '/team', label: 'Équipe & Utilisateurs', icon: Users2 },
+    ...(canManageTeam ? [{ to: '/team', label: 'Équipe & Utilisateurs', icon: Users2 }] : []),
   ];
 
   return (

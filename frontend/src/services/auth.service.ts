@@ -45,4 +45,16 @@ export class AuthService {
       method: 'GET',
     });
   }
+
+  static async getWorkspaceMembers(): Promise<UserProfile[]> {
+    return apiFetch<UserProfile[]>('/auth/members', {
+      method: 'GET',
+    });
+  }
+
+  static async getSetupStatus(): Promise<{ isFirstUser: boolean }> {
+    return apiFetch<{ isFirstUser: boolean }>('/auth/setup-status', {
+      method: 'GET',
+    });
+  }
 }

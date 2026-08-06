@@ -167,9 +167,12 @@ async function main() {
         calledNumber: '+33180001122',
         direction: CallDirection.INBOUND,
         status: CallStatus.COMPLETED,
-        duration: 225, // 3m 45s
+        duration: 225,
         agentId: adminUser.id,
         contactId: contact1.id,
+        workspaceId: workspace.id,
+        startedAt: new Date(Date.now() - 225000),
+        endedAt: new Date(),
         note: 'Point d étape sur la proposition tarifaire.',
       },
       {
@@ -177,9 +180,12 @@ async function main() {
         calledNumber: contact2.phone,
         direction: CallDirection.OUTBOUND,
         status: CallStatus.COMPLETED,
-        duration: 312, // 5m 12s
+        duration: 312,
         agentId: managerUser.id,
         contactId: contact2.id,
+        workspaceId: workspace.id,
+        startedAt: new Date(Date.now() - 312000),
+        endedAt: new Date(),
         note: 'Démonstration des fonctionnalités du Dialer.',
       },
       {
@@ -190,6 +196,7 @@ async function main() {
         duration: 0,
         agentId: agentUser.id,
         contactId: contact3.id,
+        workspaceId: workspace.id,
         note: 'Appel manqué — Rappeler avant 18h.',
       },
     ],

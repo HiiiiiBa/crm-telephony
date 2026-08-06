@@ -13,14 +13,13 @@ const sanitizeUser = (user: any): PublicUser => {
 
 export class AuthService {
   /**
-   * Inscription d'un nouvel utilisateur.
-   * Si aucun workspaceId n'est fourni, un nouvel espace de travail est créé
-   * et l'utilisateur devient automatiquement ADMIN de son workspace.
+   * Inscription publique :
+   * - 1er compte ever → ADMIN + création de l'espace de travail
+   * - Comptes suivants → AGENT dans le même espace (visible page Équipe)
    */
   static async register(data: RegisterDTO): Promise<AuthResponse> {
     const emailNormalized = data.email.trim().toLowerCase();
 
-    // 1. Vérifier si l'email existe déjà
     const existingUser = await prisma.user.findUnique({
       where: { email: emailNormalized },
     });
@@ -31,31 +30,40 @@ export class AuthService {
       throw error;
     }
 
-    let targetWorkspaceId = data.workspaceId;
-    let assignedRole = data.role || Role.AGENT;
+    const totalUsers = await prisma.user.count();
+    const allowMultiWorkspace = process.env.ALLOW_MULTI_WORKSPACE_REGISTER === 'true';
 
-    // 2. Si pas de workspaceId fourni -> Créer un nouveau Workspace et nommer l'utilisateur ADMIN
-    if (!targetWorkspaceId) {
+    let targetWorkspaceId: string;
+    let assignedRole: Role;
+
+    if (totalUsers === 0) {
       const workspaceName = data.workspaceName?.trim() || `Espace ${data.firstName} ${data.lastName}`;
       const newWorkspace = await prisma.workspace.create({
         data: { name: workspaceName },
       });
       targetWorkspaceId = newWorkspace.id;
-      assignedRole = Role.ADMIN; // Premier compte du workspace = ADMIN
+      assignedRole = Role.ADMIN;
+    } else if (allowMultiWorkspace && data.workspaceName?.trim()) {
+      const newWorkspace = await prisma.workspace.create({
+        data: { name: data.workspaceName.trim() },
+      });
+      targetWorkspaceId = newWorkspace.id;
+      assignedRole = Role.ADMIN;
     } else {
-      // Vérifier que le workspace existe
-      const wsExists = await prisma.workspace.findUnique({ where: { id: targetWorkspaceId } });
-      if (!wsExists) {
-        const error: AppError = new Error('Espace de travail spécifié introuvable.');
-        error.statusCode = 404;
+      const workspace = await prisma.workspace.findFirst({
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!workspace) {
+        const error: AppError = new Error('Aucun espace de travail disponible.');
+        error.statusCode = 500;
         throw error;
       }
+      targetWorkspaceId = workspace.id;
+      assignedRole = Role.AGENT;
     }
 
-    // 3. Hacher le mot de passe avec bcrypt
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    // 4. Créer l'utilisateur
     const user = await prisma.user.create({
       data: {
         firstName: data.firstName.trim(),
@@ -156,5 +164,50 @@ export class AuthService {
     }
 
     return sanitizeUser(user);
+  }
+
+  /**
+   * Membres du workspace visibles pour assignation (filtré par rôle).
+   */
+  static async getWorkspaceMembers(
+    workspaceId: string,
+    auth?: { userId: string; role: string }
+  ): Promise<PublicUser[]> {
+    const baseWhere = { workspaceId, isActive: true };
+
+    if (!auth || auth.role === Role.ADMIN) {
+      const users = await prisma.user.findMany({
+        where: baseWhere,
+        orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      });
+      return users.map(sanitizeUser);
+    }
+
+    if (auth.role === Role.MANAGER) {
+      const manager = await prisma.user.findFirst({
+        where: { id: auth.userId, workspaceId },
+        select: { teamId: true },
+      });
+
+      if (!manager?.teamId) {
+        const self = await prisma.user.findFirst({ where: { id: auth.userId, ...baseWhere } });
+        return self ? [sanitizeUser(self)] : [];
+      }
+
+      const users = await prisma.user.findMany({
+        where: { ...baseWhere, teamId: manager.teamId },
+        orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      });
+      return users.map(sanitizeUser);
+    }
+
+    const self = await prisma.user.findFirst({ where: { id: auth.userId, ...baseWhere } });
+    return self ? [sanitizeUser(self)] : [];
+  }
+
+  /** Indique si c'est le tout premier compte (création espace + Admin). */
+  static async getSetupStatus(): Promise<{ isFirstUser: boolean }> {
+    const totalUsers = await prisma.user.count();
+    return { isFirstUser: totalUsers === 0 };
   }
 }
