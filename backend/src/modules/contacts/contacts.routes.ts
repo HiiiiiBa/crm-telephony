@@ -8,6 +8,7 @@ const router = Router();
 router.use(authenticateJWT);
 
 router.get('/', ContactsController.getAll);
+router.get('/:id/export', ContactsController.exportData);
 router.get('/:id', ContactsController.getById);
 router.post('/', ContactsController.create);
 router.put('/:id', ContactsController.update);

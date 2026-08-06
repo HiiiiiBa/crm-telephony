@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import { Role, DealStage, CallDirection, CallStatus, MessageDirection, MessageStatus } from '../src/types/enums.js';
+import { Role, DealStage, CallDirection, CallStatus, MessageDirection, MessageStatus, PresenceStatus } from '../src/types/enums.js';
 
 const prisma = new PrismaClient();
 
@@ -8,6 +8,7 @@ async function main() {
   console.log('🌱 Démarrage du script de seed Prisma...');
 
   // Nettoyage préalable pour réinitialiser le seed proprement
+  await prisma.notification.deleteMany();
   await prisma.message.deleteMany();
   await prisma.call.deleteMany();
   await prisma.deal.deleteMany();
@@ -49,6 +50,8 @@ async function main() {
       passwordHash: adminPasswordHash,
       role: Role.ADMIN,
       isActive: true,
+      presenceStatus: PresenceStatus.ONLINE,
+      presenceUpdatedAt: new Date(),
       phoneExtension: '101',
       workspaceId: workspace.id,
       teamId: teamVentes.id,
@@ -63,6 +66,8 @@ async function main() {
       passwordHash: managerPasswordHash,
       role: Role.MANAGER,
       isActive: true,
+      presenceStatus: PresenceStatus.ONLINE,
+      presenceUpdatedAt: new Date(),
       phoneExtension: '102',
       workspaceId: workspace.id,
       teamId: teamVentes.id,
@@ -77,6 +82,8 @@ async function main() {
       passwordHash: agentPasswordHash,
       role: Role.AGENT,
       isActive: true,
+      presenceStatus: PresenceStatus.PAUSE,
+      presenceUpdatedAt: new Date(),
       phoneExtension: '103',
       workspaceId: workspace.id,
       teamId: teamVentes.id,
@@ -227,6 +234,49 @@ async function main() {
     ],
   });
   console.log(`✅ Messages SMS de test créés`);
+
+  // 9. Notifications de démonstration
+  await prisma.notification.createMany({
+    data: [
+      {
+        type: 'MISSED_CALL',
+        title: 'Appel manqué',
+        body: `Appel manqué de ${contact3.firstName} ${contact3.lastName}`,
+        link: `/contacts/${contact3.id}`,
+        userId: agentUser.id,
+        workspaceId: workspace.id,
+        isRead: false,
+      },
+      {
+        type: 'NEW_SMS',
+        title: 'Nouveau SMS',
+        body: `${contact1.firstName} ${contact1.lastName} : Merci Admin, avez-vous une disponibilité cet après-midi ?`,
+        link: `/contacts/${contact1.id}?sms=1`,
+        userId: adminUser.id,
+        workspaceId: workspace.id,
+        isRead: false,
+      },
+      {
+        type: 'NEW_SMS',
+        title: 'Nouveau SMS',
+        body: `${contact2.firstName} ${contact2.lastName} : Pouvez-vous m envoyer la proposition ?`,
+        link: `/contacts/${contact2.id}?sms=1`,
+        userId: managerUser.id,
+        workspaceId: workspace.id,
+        isRead: false,
+      },
+      {
+        type: 'SYSTEM',
+        title: 'Bienvenue sur RingCRM',
+        body: 'Votre espace de travail est configuré. Consultez le tableau de bord pour démarrer.',
+        link: '/',
+        userId: adminUser.id,
+        workspaceId: workspace.id,
+        isRead: true,
+      },
+    ],
+  });
+  console.log(`✅ Notifications de démonstration créées`);
 
   console.log('🎉 Seed Prisma terminé avec succès !');
 }

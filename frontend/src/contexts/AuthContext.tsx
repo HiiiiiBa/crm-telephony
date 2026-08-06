@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthService, UserProfile } from '../services/auth.service';
+import { PresenceService } from '../services/presence.service';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -9,6 +10,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: { firstName: string; lastName: string; email: string; password: string; workspaceName?: string }) => Promise<void>;
   logout: () => void;
+  updatePresenceStatus: (status: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,9 +57,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    void PresenceService.goOffline().catch(() => {});
     localStorage.removeItem('crm_token');
     setToken(null);
     setUser(null);
+  };
+
+  const updatePresenceStatus = (status: string) => {
+    setUser(prev => (prev ? { ...prev, presenceStatus: status } : null));
   };
 
   return (
@@ -70,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         logout,
+        updatePresenceStatus,
       }}
     >
       {children}

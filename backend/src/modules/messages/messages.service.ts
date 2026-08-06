@@ -4,6 +4,8 @@ import { getSmsProvider } from '../../messaging/messaging.service.js';
 import { MessageDirection, MessageStatus } from '../../types/enums.js';
 import { ContactsService } from '../contacts/contacts.service.js';
 import { buildMessageContactFilter } from './messages.permissions.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationType } from '../../types/enums.js';
 import {
   AuthContext,
   ConversationSummary,
@@ -157,6 +159,15 @@ export class MessagesService {
         contactId: contact.id,
       },
       include: { agent: { select: agentSelect } },
+    });
+
+    await NotificationsService.create({
+      userId: agentId,
+      workspaceId: data.workspaceId,
+      type: NotificationType.NEW_SMS,
+      title: 'Nouveau SMS',
+      body: `${contact.firstName} ${contact.lastName} : ${data.content.trim().slice(0, 100)}`,
+      link: `/contacts/${contact.id}?sms=1`,
     });
 
     return message as MessageWithAgent;

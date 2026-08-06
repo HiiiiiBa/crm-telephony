@@ -7,6 +7,7 @@ import { normalizePhone } from './calls.validation.js';
 import { buildCallVisibilityFilter } from './calls.permissions.js';
 import { buildContactVisibilityFilter } from '../contacts/contacts.permissions.js';
 import { ContactsService } from '../contacts/contacts.service.js';
+import { PresenceService } from '../presence/presence.service.js';
 
 const DEFAULT_CALLER = '+33180001122';
 const DEFAULT_PAGE = 1;
@@ -32,6 +33,11 @@ export class CallsService {
     }
 
     await prisma.call.update({ where: { id: callId }, data });
+
+    const call = await prisma.call.findUnique({ where: { id: callId }, select: { agentId: true, status: true } });
+    if (call && [CallStatus.COMPLETED, CallStatus.FAILED, CallStatus.MISSED].includes(call.status as CallStatus)) {
+      await PresenceService.restoreAfterCall(call.agentId);
+    }
   }
 
   static async startCall(auth: AuthContext, data: StartCallDTO): Promise<CallWithRelations> {
@@ -83,6 +89,8 @@ export class CallsService {
       err.statusCode = 503;
       throw err;
     }
+
+    await PresenceService.markOnCall(auth.userId);
 
     return call as CallWithRelations;
   }
@@ -192,6 +200,8 @@ export class CallsService {
       data: { status: CallStatus.COMPLETED, endedAt, duration },
       include: includeRelations,
     });
+
+    await PresenceService.restoreAfterCall(auth.userId);
 
     return updated as CallWithRelations;
   }

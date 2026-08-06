@@ -110,6 +110,22 @@ async function runTests() {
     const notFound = await API(port, '/api/contacts/non-existent-id', { headers: auth(tokenA) });
     assert(notFound.status === 404, 'Contact inexistant → 404');
 
+    // ── EXPORT RGPD (NF-05) ───────────────────────────────────────────────────
+    console.log('\n--- Tests EXPORT RGPD (API) ---');
+    const unauthExport = await API(port, `/api/contacts/${contactId}/export`);
+    assert(unauthExport.status === 401, 'GET /api/contacts/:id/export sans token → 401');
+
+    const exportRes = await API(port, `/api/contacts/${contactId}/export`, { headers: auth(tokenA) });
+    const exportBody = await exportRes.json() as ApiJson;
+    assert(exportRes.status === 200, 'GET /api/contacts/:id/export → 200');
+    assert(exportBody.purpose?.includes('RGPD'), 'Export contient la mention RGPD');
+    assert(exportBody.contact?.id === contactId, 'Export contient le contact');
+    assert(Array.isArray(exportBody.deals), 'Export contient les deals');
+    assert(exportRes.headers.get('content-disposition')?.includes('attachment'), 'En-tête Content-Disposition présent');
+
+    const crossExport = await API(port, `/api/contacts/${contactId}/export`, { headers: auth(tokenB) });
+    assert(crossExport.status === 404, 'Export cross-workspace → 404');
+
     // ── UPDATE ────────────────────────────────────────────────────────────────
     console.log('\n--- Tests UPDATE (API) ---');
     const update = await API(port, `/api/contacts/${contactId}`, {

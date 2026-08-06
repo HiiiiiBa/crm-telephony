@@ -10,14 +10,16 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:seed:bulk": "tsx prisma/seed-bulk.ts",
     "prisma:studio": "prisma studio",
-    "test": "tsx src/tests/auth.test.ts && tsx src/tests/users.test.ts && tsx src/tests/contacts.test.ts && tsx src/tests/contacts.api.test.ts && tsx src/tests/deals.test.ts && tsx src/tests/deals.api.test.ts && tsx src/tests/telephony.mock.test.ts && tsx src/tests/calls.test.ts && tsx src/tests/calls.api.test.ts && tsx src/tests/messages.test.ts",
+    "test": "tsx src/tests/auth.test.ts && tsx src/tests/users.test.ts && tsx src/tests/contacts.test.ts && tsx src/tests/contacts.api.test.ts && tsx src/tests/deals.test.ts && tsx src/tests/deals.api.test.ts && tsx src/tests/telephony.mock.test.ts && tsx src/tests/calls.test.ts && tsx src/tests/calls.api.test.ts && tsx src/tests/messages.test.ts && tsx src/tests/perf.test.ts",
     "test:messages": "tsx src/tests/messages.test.ts",
     "test:users": "tsx src/tests/users.test.ts",
     "test:auth": "tsx src/tests/auth.test.ts",
     "test:contacts": "tsx src/tests/contacts.test.ts && tsx src/tests/contacts.api.test.ts",
     "test:deals": "tsx src/tests/deals.test.ts && tsx src/tests/deals.api.test.ts",
-    "test:calls": "tsx src/tests/telephony.mock.test.ts && tsx src/tests/calls.test.ts && tsx src/tests/calls.api.test.ts"
+    "test:calls": "tsx src/tests/telephony.mock.test.ts && tsx src/tests/calls.test.ts && tsx src/tests/calls.api.test.ts",
+    "test:perf": "tsx src/tests/perf.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

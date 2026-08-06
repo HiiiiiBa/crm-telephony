@@ -8,11 +8,14 @@ export interface InviteUserDTO {
   password: string;
   role?: Role;
   phoneExtension?: string;
+  teamId?: string;
 }
 
 export interface UpdateUserDTO {
   role?: Role;
   isActive?: boolean;
+  teamId?: string | null;
+  phoneExtension?: string | null;
 }
 
 export interface TeamMember extends PublicUser {

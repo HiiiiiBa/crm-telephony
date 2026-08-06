@@ -5,6 +5,7 @@ import { env } from '../../config/env.js';
 import { Role } from '../../types/enums.js';
 import { RegisterDTO, LoginDTO, AuthResponse, PublicUser, UserJwtPayload } from './auth.types.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { PresenceService } from '../presence/presence.service.js';
 
 const sanitizeUser = (user: any): PublicUser => {
   const { passwordHash, ...sanitized } = user;
@@ -89,8 +90,10 @@ export class AuthService {
       expiresIn: '7d',
     });
 
+    await PresenceService.markOnline(user.id);
+
     return {
-      user: sanitizeUser(user),
+      user: sanitizeUser(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })),
       token,
     };
   }
@@ -139,8 +142,10 @@ export class AuthService {
       expiresIn: '7d',
     });
 
+    await PresenceService.markOnline(user.id);
+
     return {
-      user: sanitizeUser(user),
+      user: sanitizeUser(await prisma.user.findUniqueOrThrow({ where: { id: user.id } })),
       token,
     };
   }

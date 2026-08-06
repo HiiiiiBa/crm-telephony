@@ -27,7 +27,7 @@ export const validateInviteUser = (data: Partial<InviteUserDTO>): { isValid: boo
 export const validateUpdateUser = (data: Partial<UpdateUserDTO>): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
-  if (data.role === undefined && data.isActive === undefined) {
+  if (data.role === undefined && data.isActive === undefined && data.teamId === undefined && data.phoneExtension === undefined) {
     errors.push('Aucune modification fournie.');
   }
 

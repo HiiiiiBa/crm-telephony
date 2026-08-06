@@ -58,3 +58,25 @@ body {
 .glow-emerald {
   box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.4);
 }
+
+/* NF-06 : focus clavier visible (navigation au clavier) */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-color: #818cf8;
+  border-color: #6366f1;
+}

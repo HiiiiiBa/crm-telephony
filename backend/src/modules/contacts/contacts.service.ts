@@ -14,6 +14,7 @@ import {
   ContactFilters,
   PaginatedContacts,
   ContactWithOwner,
+  ContactExportPayload,
 } from './contacts.types.js';
 
 const DEFAULT_PAGE = 1;
@@ -170,6 +171,47 @@ export class ContactsService {
     });
 
     return contact as ContactWithOwner;
+  }
+
+  /** NF-05 : export RGPD (droit d'accès aux données personnelles d'un contact). */
+  static async exportData(id: string, auth: AuthContext): Promise<ContactExportPayload> {
+    const detail = await ContactsService.getById(id, auth);
+
+    const sanitizeAgent = (agent: { id: string; firstName: string; lastName: string; email: string }) => ({
+      id: agent.id,
+      firstName: agent.firstName,
+      lastName: agent.lastName,
+      email: agent.email,
+    });
+
+    return {
+      exportedAt: new Date().toISOString(),
+      purpose: 'RGPD — droit d\'accès aux données personnelles',
+      contact: {
+        id: detail.id,
+        firstName: detail.firstName,
+        lastName: detail.lastName,
+        company: detail.company,
+        phone: detail.phone,
+        email: detail.email,
+        tags: detail.tags,
+        notes: detail.notes,
+        ownerId: detail.ownerId,
+        workspaceId: detail.workspaceId,
+        createdAt: detail.createdAt,
+        updatedAt: detail.updatedAt,
+        owner: detail.owner,
+      },
+      deals: (detail.deals as Record<string, unknown>[]) || [],
+      calls: ((detail.calls as Array<Record<string, unknown> & { agent?: unknown }>) || []).map((call) => ({
+        ...call,
+        agent: call.agent ? sanitizeAgent(call.agent as any) : undefined,
+      })),
+      messages: ((detail.messages as Array<Record<string, unknown> & { agent?: unknown }>) || []).map((msg) => ({
+        ...msg,
+        agent: msg.agent ? sanitizeAgent(msg.agent as any) : undefined,
+      })),
+    };
   }
 
   static async delete(id: string, auth: AuthContext): Promise<void> {

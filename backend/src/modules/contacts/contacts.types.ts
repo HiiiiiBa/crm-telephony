@@ -42,6 +42,15 @@ export interface PaginatedContacts {
   };
 }
 
+export interface ContactExportPayload {
+  exportedAt: string;
+  purpose: string;
+  contact: ContactWithOwner;
+  deals: Record<string, unknown>[];
+  calls: Record<string, unknown>[];
+  messages: Record<string, unknown>[];
+}
+
 export interface ContactWithOwner {
   id: string;
   firstName: string;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Phone, Mail, Building, Tag, FileText, Edit, Trash2,
-  User, Loader2, AlertCircle, Calendar, MessageSquare
+  User, Loader2, AlertCircle, Calendar, MessageSquare, Download
 } from 'lucide-react';
 import { ContactsService, Contact, parseTags, CreateContactData } from '../services/contacts.service';
 import { ContactForm } from '../components/contacts/ContactForm';
@@ -26,6 +26,7 @@ export const ContactDetailPage: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   const [smsFocus, setSmsFocus] = useState(searchParams.get('sms') === '1');
 
   const { startCall } = useCall();
@@ -76,6 +77,18 @@ export const ContactDetailPage: React.FC = () => {
     } catch (e: any) { setError(e.message); }
   };
 
+  const handleExport = async () => {
+    if (!id) return;
+    setExportLoading(true);
+    try {
+      await ContactsService.downloadExport(id);
+    } catch (e: any) {
+      setError(e.message || 'Export impossible.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   if (isLoading) return (
     <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
       <Loader2 className="w-5 h-5 animate-spin" />
@@ -104,6 +117,15 @@ export const ContactDetailPage: React.FC = () => {
           <ArrowLeft className="w-4 h-4" /> Retour aux contacts
         </Link>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            disabled={exportLoading}
+            title="Exporter les données (RGPD)"
+            className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition disabled:opacity-50"
+          >
+            {exportLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            Exporter
+          </button>
           <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-indigo-600/30">
             <Edit className="w-3.5 h-3.5" /> Modifier
           </button>

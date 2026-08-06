@@ -1,6 +1,8 @@
 import React from 'react';
-import { Search, Bell, PhoneCall, Circle, LogOut } from 'lucide-react';
+import { Search, PhoneCall, Circle, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { PresenceSelector } from './presence/PresenceSelector';
+import { NotificationBell } from './notifications/NotificationBell';
 
 interface HeaderProps {
   onToggleDialer: () => void;
@@ -26,6 +28,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleDialer, isDialerOpen }) 
 
       {/* Action Bar & User Profile */}
       <div className="flex items-center gap-4">
+        {/* Présence agent (Ringover) */}
+        <PresenceSelector />
+
         {/* Toggle Dialer Button */}
         <button
           onClick={onToggleDialer}
@@ -41,10 +46,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleDialer, isDialerOpen }) 
         </button>
 
         {/* Notifications */}
-        <button className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition relative">
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full" />
-        </button>
+        <NotificationBell />
 
         {/* User Badge */}
         <div className="flex items-center gap-3 pl-3 border-l border-slate-800">

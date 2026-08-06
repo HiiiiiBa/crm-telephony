@@ -102,10 +102,22 @@ async function runTests() {
     const deleted = await prisma.user.findUnique({ where: { email: agentEmail } });
     assert(deleted === null, 'Compte agent supprimé');
 
+    console.log('\n--- Test 7 : Liste membres (F-71 — tous les rôles) ---');
+    const memberList = await UsersService.list(adminReg.user.workspaceId);
+    assert(memberList.length >= 2, 'Liste accessible avec identité et statut');
+
+    console.log('\n--- Test 8 : Équipes (F-72) ---');
+    const { TeamsService } = await import('../modules/teams/teams.service.js');
+    const team = await TeamsService.create(actorAdmin, { name: 'Équipe Test', description: 'Test F-72' });
+    assert(Boolean(team.id), 'Création équipe');
+    const withTeam = await UsersService.update(actorAdmin, invitedManager.id, { teamId: team.id });
+    assert(withTeam.team?.id === team.id, 'Assignation membre à équipe');
+
     // Nettoyage
     await prisma.user.deleteMany({
       where: { workspaceId: adminReg.user.workspaceId },
     });
+    await prisma.team.deleteMany({ where: { workspaceId: adminReg.user.workspaceId } });
     await prisma.workspace.delete({ where: { id: adminReg.user.workspaceId } });
 
     console.log(`\n📊 Résultats : ${passedCount} réussis, ${failedCount} échoués.`);

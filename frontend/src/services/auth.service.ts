@@ -7,6 +7,8 @@ export interface UserProfile {
   email: string;
   role: 'ADMIN' | 'MANAGER' | 'AGENT' | string;
   isActive: boolean;
+  presenceStatus?: 'ONLINE' | 'ON_CALL' | 'PAUSE' | 'OFFLINE' | string;
+  presenceUpdatedAt?: string | null;
   phoneExtension?: string | null;
   workspaceId: string;
   teamId?: string | null;

@@ -18,6 +18,7 @@ model Workspace {
   contacts  Contact[]
   deals     Deal[]
   calls     Call[]
+  notifications Notification[]
 }
 
 model Team {
@@ -42,6 +43,8 @@ model User {
   lastName       String
   role           String    @default("AGENT") // ADMIN, MANAGER, AGENT
   isActive       Boolean   @default(true)
+  presenceStatus String    @default("OFFLINE") // ONLINE, ON_CALL, PAUSE, OFFLINE
+  presenceUpdatedAt DateTime?
   phoneExtension String?
   workspaceId    String
   workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -54,6 +57,7 @@ model User {
   deals          Deal[]    @relation("DealOwner")
   calls          Call[]    @relation("AgentCalls")
   messages       Message[] @relation("AgentMessages")
+  notifications  Notification[] @relation("UserNotifications")
 
   @@index([workspaceId])
   @@index([teamId])
@@ -83,6 +87,7 @@ model Contact {
   @@index([ownerId])
   @@index([phone])
   @@index([email])
+  @@index([workspaceId, createdAt])
 }
 
 model Deal {
@@ -129,6 +134,7 @@ model Call {
   @@index([contactId])
   @@index([workspaceId])
   @@index([createdAt])
+  @@index([workspaceId, createdAt])
 }
 
 model Message {
@@ -147,4 +153,22 @@ model Message {
   @@index([agentId])
   @@index([contactId])
   @@index([createdAt])
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  type        String    // MISSED_CALL, NEW_SMS, INCOMING_CALL, SYSTEM
+  title       String
+  body        String
+  link        String?
+  isRead      Boolean   @default(false)
+  userId      String
+  user        User      @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([workspaceId])
 }

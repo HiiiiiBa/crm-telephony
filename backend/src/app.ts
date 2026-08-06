@@ -6,6 +6,10 @@ import dealsRoutes from './modules/deals/deals.routes.js';
 import callsRoutes from './modules/calls/calls.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import messagesRoutes from './modules/messages/messages.routes.js';
+import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import teamsRoutes from './modules/teams/teams.routes.js';
+import presenceRoutes from './modules/presence/presence.routes.js';
+import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -31,6 +35,10 @@ app.use('/api/deals', dealsRoutes);
 app.use('/api/calls', callsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/teams', teamsRoutes);
+app.use('/api/presence', presenceRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Middleware d'erreur global
 app.use(errorHandler);

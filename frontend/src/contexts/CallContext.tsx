@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { CallsService } from '../services/calls.service';
 import { ActiveCall, CallStatus, formatCallDuration, isActiveStatus } from '../types/calls.types';
+import { useAuth } from './AuthContext';
 
 interface CallContextType {
   activeCall: ActiveCall | null;
@@ -19,6 +20,7 @@ const CallContext = createContext<CallContextType | undefined>(undefined);
 const TERMINAL_STATUSES = [CallStatus.COMPLETED, CallStatus.FAILED, CallStatus.MISSED, CallStatus.VOICEMAIL];
 
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { updatePresenceStatus } = useAuth();
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -38,6 +40,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (TERMINAL_STATUSES.includes(call.status as CallStatus)) {
         clearTimers();
+        updatePresenceStatus('ONLINE');
         setTimeout(() => setActiveCall(null), 1500);
         return;
       }
@@ -49,7 +52,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore polling errors
     }
-  }, [clearTimers]);
+  }, [clearTimers, updatePresenceStatus]);
 
   const startDurationTimer = useCallback((startedAt: string) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -68,6 +71,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActiveCall(active);
       setCallDuration(0);
       setIsMuted(false);
+      updatePresenceStatus('ON_CALL');
 
       pollRef.current = setInterval(() => syncCall(call.id), 1000);
 
@@ -78,7 +82,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(e.message || 'Impossible de lancer l\'appel.');
       throw e;
     }
-  }, [clearTimers, syncCall, startDurationTimer]);
+  }, [clearTimers, syncCall, startDurationTimer, updatePresenceStatus]);
 
   const hangup = useCallback(async () => {
     if (!activeCall) return;
@@ -89,10 +93,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActiveCall(null);
       setIsMuted(false);
       setCallDuration(0);
+      updatePresenceStatus('ONLINE');
     } catch (e: any) {
       setError(e.message || 'Erreur lors du raccrochage.');
     }
-  }, [activeCall, clearTimers]);
+  }, [activeCall, clearTimers, updatePresenceStatus]);
 
   const mute = useCallback(async () => {
     if (!activeCall) return;

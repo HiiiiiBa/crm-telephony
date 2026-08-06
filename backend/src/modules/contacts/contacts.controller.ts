@@ -33,6 +33,18 @@ export class ContactsController {
     }
   }
 
+  static async exportData(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payload = await ContactsService.exportData(req.params.id, authFromReq(req));
+      const filename = `contact-${payload.contact.id}-export.json`;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.status(200).json(payload);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
       const auth = authFromReq(req);

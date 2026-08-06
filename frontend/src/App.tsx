@@ -52,14 +52,7 @@ export const AppContent: React.FC = () => {
                       <Route path="/dialer" element={<DialerPage />} />
                       <Route path="/calls" element={<CallsPage />} />
                       <Route path="/messages" element={<MessagesPage />} />
-                      <Route
-                        path="/team"
-                        element={
-                          <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
-                            <TeamPage />
-                          </ProtectedRoute>
-                        }
-                      />
+                      <Route path="/team" element={<TeamPage />} />
                     </Routes>
                   </main>
                 </div>

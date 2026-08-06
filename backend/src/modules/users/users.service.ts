@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../../services/prisma.js';
 import { Role } from '../../types/enums.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { TeamsService } from '../teams/teams.service.js';
 import { AuthActor, InviteUserDTO, TeamMember, UpdateUserDTO } from './users.types.js';
 
 const toTeamMember = (user: any): TeamMember => {
@@ -13,6 +14,7 @@ const toTeamMember = (user: any): TeamMember => {
 };
 
 export class UsersService {
+  /** F-71 — Liste des membres (lecture pour tous les rôles authentifiés). */
   static async list(workspaceId: string): Promise<TeamMember[]> {
     const users = await prisma.user.findMany({
       where: { workspaceId },
@@ -22,11 +24,7 @@ export class UsersService {
     return users.map(toTeamMember);
   }
 
-  /**
-   * Invitation d'un membre dans le workspace (F-04).
-   * Tous les comptes créés via invitation sont AGENT par défaut.
-   * Un Admin peut attribuer le rôle MANAGER ; un Manager ne peut inviter que des AGENT.
-   */
+  /** F-70 — Invitation par Admin/Manager. */
   static async invite(actor: AuthActor, data: InviteUserDTO): Promise<TeamMember> {
     const emailNormalized = data.email.trim().toLowerCase();
 
@@ -42,6 +40,10 @@ export class UsersService {
       assignedRole = Role.MANAGER;
     }
 
+    if (data.teamId) {
+      await TeamsService.assertTeamInWorkspace(data.teamId, actor.workspaceId);
+    }
+
     const passwordHash = await bcrypt.hash(data.password, 10);
 
     const user = await prisma.user.create({
@@ -52,7 +54,8 @@ export class UsersService {
         passwordHash,
         role: assignedRole,
         isActive: true,
-        phoneExtension: data.phoneExtension || null,
+        phoneExtension: data.phoneExtension?.trim() || null,
+        teamId: data.teamId || null,
         workspaceId: actor.workspaceId,
       },
       include: { team: { select: { id: true, name: true } } },
@@ -61,9 +64,7 @@ export class UsersService {
     return toTeamMember(user);
   }
 
-  /**
-   * Mise à jour du rôle ou du statut actif (F-05 — réservé à l'Admin).
-   */
+  /** F-73 — Admin : rôle / statut. Admin & Manager : équipe / extension (F-72). */
   static async update(actor: AuthActor, userId: string, data: UpdateUserDTO): Promise<TeamMember> {
     const target = await prisma.user.findFirst({
       where: { id: userId, workspaceId: actor.workspaceId },
@@ -76,13 +77,28 @@ export class UsersService {
       throw error;
     }
 
+    const isAdmin = actor.role === Role.ADMIN;
+    const isManager = actor.role === Role.MANAGER;
+
+    if (!isAdmin && (data.role !== undefined || data.isActive !== undefined)) {
+      const error: AppError = new Error('Seul un administrateur peut modifier le rôle ou le statut.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!isAdmin && !isManager && (data.teamId !== undefined || data.phoneExtension !== undefined)) {
+      const error: AppError = new Error('Accès refusé.');
+      error.statusCode = 403;
+      throw error;
+    }
+
     if (target.id === actor.userId && data.isActive === false) {
       const error: AppError = new Error('Vous ne pouvez pas désactiver votre propre compte.');
       error.statusCode = 400;
       throw error;
     }
 
-    if (data.role !== undefined) {
+    if (data.role !== undefined && isAdmin) {
       if (data.role === Role.ADMIN) {
         const error: AppError = new Error('Le rôle ADMIN ne peut pas être attribué via cette action.');
         error.statusCode = 400;
@@ -101,11 +117,17 @@ export class UsersService {
       }
     }
 
+    if (data.teamId) {
+      await TeamsService.assertTeamInWorkspace(data.teamId, actor.workspaceId);
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
-        ...(data.role !== undefined && { role: data.role }),
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.role !== undefined && isAdmin && { role: data.role }),
+        ...(data.isActive !== undefined && isAdmin && { isActive: data.isActive }),
+        ...(data.teamId !== undefined && { teamId: data.teamId || null }),
+        ...(data.phoneExtension !== undefined && { phoneExtension: data.phoneExtension?.trim() || null }),
       },
       include: { team: { select: { id: true, name: true } } },
     });
@@ -113,9 +135,6 @@ export class UsersService {
     return toTeamMember(updated);
   }
 
-  /**
-   * Suppression définitive d'un compte (F-05 — réservé à l'Admin).
-   */
   static async delete(actor: AuthActor, userId: string): Promise<void> {
     if (userId === actor.userId) {
       const error: AppError = new Error('Vous ne pouvez pas supprimer votre propre compte.');

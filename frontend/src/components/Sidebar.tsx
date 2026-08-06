@@ -14,7 +14,6 @@ import {
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuth();
-  const canManageTeam = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
   const navItems = [
     { to: '/', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -23,7 +22,7 @@ export const Sidebar: React.FC = () => {
     { to: '/dialer', label: 'Dialer', icon: Phone },
     { to: '/calls', label: 'Historique d\'appels', icon: PhoneCall },
     { to: '/messages', label: 'Messagerie SMS', icon: MessageSquare },
-    ...(canManageTeam ? [{ to: '/team', label: 'Équipe & Utilisateurs', icon: Users2 }] : []),
+    { to: '/team', label: 'Équipe & Utilisateurs', icon: Users2 },
   ];
 
   return (
@@ -49,7 +48,7 @@ export const Sidebar: React.FC = () => {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
                     isActive
                       ? 'bg-indigo-600/90 text-white shadow-md shadow-indigo-600/30'
                       : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'

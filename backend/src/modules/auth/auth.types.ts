@@ -31,6 +31,8 @@ export interface PublicUser {
   phoneExtension?: string | null;
   workspaceId: string;
   teamId?: string | null;
+  presenceStatus?: string;
+  presenceUpdatedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

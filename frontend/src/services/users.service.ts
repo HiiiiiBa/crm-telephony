@@ -11,11 +11,15 @@ export interface InviteUserData {
   email: string;
   password: string;
   role?: 'AGENT' | 'MANAGER';
+  phoneExtension?: string;
+  teamId?: string;
 }
 
 export interface UpdateUserData {
   role?: 'AGENT' | 'MANAGER';
   isActive?: boolean;
+  teamId?: string | null;
+  phoneExtension?: string | null;
 }
 
 export class UsersService {

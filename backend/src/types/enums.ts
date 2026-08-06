@@ -38,3 +38,18 @@ export enum MessageStatus {
   FAILED = 'FAILED',
   RECEIVED = 'RECEIVED',
 }
+
+/** Statut de présence agent (style Ringover). */
+export enum PresenceStatus {
+  ONLINE = 'ONLINE',
+  ON_CALL = 'ON_CALL',
+  PAUSE = 'PAUSE',
+  OFFLINE = 'OFFLINE',
+}
+
+export enum NotificationType {
+  MISSED_CALL = 'MISSED_CALL',
+  NEW_SMS = 'NEW_SMS',
+  INCOMING_CALL = 'INCOMING_CALL',
+  SYSTEM = 'SYSTEM',
+}

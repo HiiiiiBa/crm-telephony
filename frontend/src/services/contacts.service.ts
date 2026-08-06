@@ -93,6 +93,29 @@ export class ContactsService {
   static async deleteContact(id: string): Promise<void> {
     await apiFetch<void>(`/contacts/${id}`, { method: 'DELETE' });
   }
+
+  /** NF-05 : télécharge l'export RGPD du contact (JSON). */
+  static async downloadExport(id: string): Promise<void> {
+    const token = localStorage.getItem('crm_token');
+    const response = await fetch(`/api/contacts/${id}/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error?.message || 'Export impossible.');
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition');
+    const filename = disposition?.match(/filename="(.+)"/)?.[1] || `contact-${id}-export.json`;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 }
 
 // Helper: parse tags JSON string → string array
